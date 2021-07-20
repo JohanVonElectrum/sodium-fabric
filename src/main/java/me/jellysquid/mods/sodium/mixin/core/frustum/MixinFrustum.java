@@ -83,17 +83,21 @@ public class MixinFrustum implements FrustumExtended {
     }
 
     /**
-     * @author JellySquid
+     * @author JohanVonElectrum
      * @reason Optimize away object allocations and for-loop
      */
     @Overwrite
     private boolean isAnyCornerVisible(float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
-        return this.nxX * (this.nxX < 0 ? minX : maxX) + this.nxY * (this.nxY < 0 ? minY : maxY) + this.nxZ * (this.nxZ < 0 ? minZ : maxZ) >= -this.nxW &&
-                this.pxX * (this.pxX < 0 ? minX : maxX) + this.pxY * (this.pxY < 0 ? minY : maxY) + this.pxZ * (this.pxZ < 0 ? minZ : maxZ) >= -this.pxW &&
-                this.nyX * (this.nyX < 0 ? minX : maxX) + this.nyY * (this.nyY < 0 ? minY : maxY) + this.nyZ * (this.nyZ < 0 ? minZ : maxZ) >= -this.nyW &&
-                this.pyX * (this.pyX < 0 ? minX : maxX) + this.pyY * (this.pyY < 0 ? minY : maxY) + this.pyZ * (this.pyZ < 0 ? minZ : maxZ) >= -this.pyW &&
-                this.nzX * (this.nzX < 0 ? minX : maxX) + this.nzY * (this.nzY < 0 ? minY : maxY) + this.nzZ * (this.nzZ < 0 ? minZ : maxZ) >= -this.nzW &&
-                this.pzX * (this.pzX < 0 ? minX : maxX) + this.pzY * (this.pzY < 0 ? minY : maxY) + this.pzZ * (this.pzZ < 0 ? minZ : maxZ) >= -this.pzW;
+        return isAnyCornerVisible(null, minX, minY, minZ, maxX, maxY, maxZ);
+    }
+
+    private boolean isAnyCornerVisible(boolean[] ref, float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
+        return isCornerVisible(ref, minX, minY, minZ, maxX, maxY, maxZ, this.nxX, this.nxY, this.nxZ, this.nxW) &&
+                isCornerVisible(ref, minX, minY, minZ, maxX, maxY, maxZ, this.pxX, this.pxY, this.pxZ, this.pxW) &&
+                isCornerVisible(ref, minX, minY, minZ, maxX, maxY, maxZ, this.nyX, this.nyY, this.nyZ, this.nyW) &&
+                isCornerVisible(ref, minX, minY, minZ, maxX, maxY, maxZ, this.pyX, this.pyY, this.pyZ, this.pyW) &&
+                isCornerVisible(ref, minX, minY, minZ, maxX, maxY, maxZ, this.nzX, this.nzY, this.nzZ, this.nzW) &&
+                isCornerVisible(ref, minX, minY, minZ, maxX, maxY, maxZ, this.pzX, this.pzY, this.pzZ, this.pzW);
     }
 
     @Override
@@ -103,28 +107,17 @@ public class MixinFrustum implements FrustumExtended {
     }
 
     private RenderRegionVisibility aabbTest0(float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
-        boolean inside = true;
+        boolean[] inside = new boolean[] { true }; // in C++, pass boolean as reference to isCornerVisible(bool &ref, ...)
 
-        if (nxX * (nxX < 0 ? minX : maxX) + nxY * (nxY < 0 ? minY : maxY) + nxZ * (nxZ < 0 ? minZ : maxZ) >= -nxW) {
-            inside &= nxX * (nxX < 0 ? maxX : minX) + nxY * (nxY < 0 ? maxY : minY) + nxZ * (nxZ < 0 ? maxZ : minZ) >= -nxW;
-            if (pxX * (pxX < 0 ? minX : maxX) + pxY * (pxY < 0 ? minY : maxY) + pxZ * (pxZ < 0 ? minZ : maxZ) >= -pxW) {
-                inside &= pxX * (pxX < 0 ? maxX : minX) + pxY * (pxY < 0 ? maxY : minY) + pxZ * (pxZ < 0 ? maxZ : minZ) >= -pxW;
-                if (nyX * (nyX < 0 ? minX : maxX) + nyY * (nyY < 0 ? minY : maxY) + nyZ * (nyZ < 0 ? minZ : maxZ) >= -nyW) {
-                    inside &= nyX * (nyX < 0 ? maxX : minX) + nyY * (nyY < 0 ? maxY : minY) + nyZ * (nyZ < 0 ? maxZ : minZ) >= -nyW;
-                    if (pyX * (pyX < 0 ? minX : maxX) + pyY * (pyY < 0 ? minY : maxY) + pyZ * (pyZ < 0 ? minZ : maxZ) >= -pyW) {
-                        inside &= pyX * (pyX < 0 ? maxX : minX) + pyY * (pyY < 0 ? maxY : minY) + pyZ * (pyZ < 0 ? maxZ : minZ) >= -pyW;
-                        if (nzX * (nzX < 0 ? minX : maxX) + nzY * (nzY < 0 ? minY : maxY) + nzZ * (nzZ < 0 ? minZ : maxZ) >= -nzW) {
-                            inside &= nzX * (nzX < 0 ? maxX : minX) + nzY * (nzY < 0 ? maxY : minY) + nzZ * (nzZ < 0 ? maxZ : minZ) >= -nzW;
-                            if (pzX * (pzX < 0 ? minX : maxX) + pzY * (pzY < 0 ? minY : maxY) + pzZ * (pzZ < 0 ? minZ : maxZ) >= -pzW) {
-                                inside &= pzX * (pzX < 0 ? maxX : minX) + pzY * (pzY < 0 ? maxY : minY) + pzZ * (pzZ < 0 ? maxZ : minZ) >= -pzW;
-                                return inside ? RenderRegionVisibility.FULLY_VISIBLE : RenderRegionVisibility.VISIBLE;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        if (isAnyCornerVisible(inside, minX, minY, minZ, maxX, maxY, maxZ))
+            return inside[0] ? RenderRegionVisibility.FULLY_VISIBLE : RenderRegionVisibility.VISIBLE;
 
         return RenderRegionVisibility.CULLED;
+    }
+
+    private static boolean isCornerVisible(boolean[] ref, float minX, float minY, float minZ, float maxX, float maxY, float maxZ, float x, float y, float z, float w) {
+        if (ref != null)
+            ref[0] &= x * (x < 0 ? maxX : minX) + y * (y < 0 ? maxY : minY) + z * (z < 0 ? maxZ : minZ) >= -w;
+        return x * (x < 0 ? minX : maxX) + y * (y < 0 ? minY : maxY) + z * (z < 0 ? minZ : maxZ) >= -w;
     }
 }
